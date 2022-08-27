@@ -11,8 +11,8 @@ class CleverBot(Bot):
     Проверяет совпадение принимающего чата и текста.
     """
 
-    _is_active: bool = False
-    _is_sended: bool = False
+    is_active: bool = False
+    is_sended: bool = False
     sended_messages: Set[str] = set()
 
     def __init__(self, token: str = None):
@@ -23,7 +23,7 @@ class CleverBot(Bot):
     def set_token(self, token: str):
         """Назначает токен."""
         super().__init__(token)
-        self._is_active = True
+        self.is_active = True
 
     def get_memorized_key(
         self,
@@ -47,36 +47,19 @@ class CleverBot(Bot):
         if chat_id:
 
             memorized_key = self.get_memorized_key(chat_id, text)
+            is_repeated = memorized_key in self.sended_messages
 
-            if any([
-                not is_memorized,
-                memorized_key not in self.sended_messages
-            ]):
-                if stng.BOT_IS_ACTIVE:
-                    res = super().send_message(chat_id, text, *args, **kwargs)
-                self._is_sended = True
-            else:
-                self._is_sended = False
+            self.is_sended = any([not is_memorized, not is_repeated])
 
-            if is_memorized:
+            if all([self.is_sended, stng.BOT_IS_ACTIVE]):
+                res = super().send_message(chat_id, text, *args, **kwargs)
+
+            if all([is_memorized, not is_repeated]):
                 self.sended_messages.add(memorized_key)
 
         return res
 
     def send_message(self, *args, **kwargs) -> Message:
         """Отправляет сообщение, устанавливая статус отправки."""
-        self._is_sended = True
+        self.is_sended = True
         return super().send_message(*args, **kwargs)
-
-    @property
-    def is_active(self) -> bool:
-        """Возвращает признак активности бота."""
-        return self._is_active
-
-    @property
-    def is_sended(self) -> bool:
-        """Возвращает признак отправки последнего сообщения."""
-        return self._is_active
-
-
-app_bot = CleverBot()

@@ -1,5 +1,5 @@
 # decorators.py
-from loggers import logit_logger as logger
+import homework
 import settings as stng
 
 
@@ -8,10 +8,10 @@ def logit(func):
     def wrapper(*args, **kw):
         if stng.LOGIT_ON:
             msg = f'"{func.__name__}" begun.'
-            logger.debug(msg)
+            homework.logit_logger.debug(msg)
         result = func(*args, **kw)
         if stng.LOGIT_ON:
             msg = f'"{func.__name__}" finished.'
-            logger.debug(msg)
+            homework.logit_logger.debug(msg)
         return result
     return wrapper

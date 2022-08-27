@@ -1,22 +1,20 @@
 # settings.py
 import logging
-from dot_env import PRACTICUM_TOKEN
+import os
 
 DEBUG = True
 
 BOT_IS_ACTIVE = not DEBUG
 
-LOGIT_ON = True
+LOGIT_ON = DEBUG
 
-RETRY_TIME = 10 if DEBUG else 600
+RETRY_TIME = 5 if DEBUG else 600
 
 LOGGIN_LEVEL = logging.DEBUG if DEBUG else logging.INFO
 
+PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN', '')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN', '')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 0)
+
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-
-HOMEWORK_STATUSES = {
-    'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
-    'reviewing': 'Работа взята на проверку ревьюером.',
-    'rejected': 'Работа проверена: у ревьюера есть замечания.'
-}
