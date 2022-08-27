@@ -2,7 +2,7 @@
 import logging
 import os
 
-DEBUG = True
+DEBUG = False
 
 BOT_IS_ACTIVE = not DEBUG
 
