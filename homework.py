@@ -122,7 +122,7 @@ def get_api_answer(current_timestamp=None) -> dict:
         raise ex.NotFoundException(msg_obj=stng.ENDPOINT)
 
     elif response.status_code == HTTPStatus.UNAUTHORIZED:
-        raise ex.PracticumWrongTokenException()g
+        raise ex.PracticumWrongTokenException()
 
     else:
         raise ex.EndPointStatusException(msg_obj=response.status_code)
