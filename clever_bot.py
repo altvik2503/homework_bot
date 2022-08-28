@@ -17,6 +17,7 @@ class CleverBot(Bot):
 
     def __init__(self, token: str = None):
         """Инициирует бот."""
+        self.eee = ''
         if token:
             self.set_token(token)
 

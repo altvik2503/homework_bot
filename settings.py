@@ -3,11 +3,11 @@ import logging
 import os
 from dotenv import load_dotenv
 
-DEBUG = True
+DEBUG = False
 
-BOT_IS_ACTIVE = DEBUG
+BOT_IS_ACTIVE = not DEBUG
 
-LOGIT_ON = not DEBUG
+LOGIT_ON = DEBUG
 
 RETRY_TIME = 5 if DEBUG else 600
 
