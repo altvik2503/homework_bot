@@ -10,7 +10,7 @@ import sys
 import logging
 
 import exceptions as ex
-from clever_bot import CleverBot
+from clever_bot import CleverBot, app_bot
 from decorators import logit
 import settings as stng
 from statuses import (
@@ -35,8 +35,6 @@ app_logger = logging.getLogger(BASE_LOGGER_NAME)
 logit_logger = logging.getLogger(f'{BASE_LOGGER_NAME}.logit')
 exception_logger = logging.getLogger(f'{BASE_LOGGER_NAME}.err')
 
-app_bot = CleverBot()
-
 
 @logit
 def send_memorized(
@@ -57,8 +55,8 @@ def send_memorized(
     except telegram.error.BadRequest as error:
         raise ex.TelegramWrongChatIdException(msg_obj=error)
 
-    except telegram.error.Unauthorized:
-        raise ex.TelegramWrongTokenException
+    except telegram.error.Unauthorized as error:
+        raise ex.TelegramWrongTokenException(msg_obj=error)
 
     except telegram.error.NetworkError as error:
         raise ex.TelegramNetworkErrorException(msg_obj=error)
@@ -77,27 +75,28 @@ def send_message(bot: CleverBot, message: str) -> None:
     send_memorized(TELEGRAM_CHAT_ID, message, bot=bot)
 
 
-# @logit  # Иначе не проходит тест
+@logit
+def raise_bad_token() -> None:
+    """Вызывает исключение при ошибке переменных окружения."""
+    if not TELEGRAM_TOKEN:
+        raise ex.TelegramAbsentTokenException
+
+    if not TELEGRAM_CHAT_ID:
+        raise ex.TelegramAbsentChatId
+
+    if not PRACTICUM_TOKEN:
+        raise ex.PracticumAbsentTokenException
+
+
 def check_tokens() -> bool:
     """Проверяет наличие переменных окружения."""
-    is_success = True
-
-    if TELEGRAM_TOKEN is None:
-        is_success = False
-        ex.TelegramAbsentTokenException()
-
-    if TELEGRAM_CHAT_ID is None:
-        is_success = False
-        ex.TelegramAbsentChatId()
-
-    if PRACTICUM_TOKEN is None:
-        is_success = False
-        ex.PracticumAbsentTokenException()
-
-    return is_success
+    return all([
+        TELEGRAM_TOKEN,
+        TELEGRAM_CHAT_ID,
+        PRACTICUM_TOKEN,
+    ])
 
 
-# @logit  # Иначе не проходит тест
 def get_api_answer(current_timestamp=None) -> dict:
     """Отправляет запрос сервису Практикума."""
     timestamp = current_timestamp or int(time.time())
@@ -164,7 +163,6 @@ def status_is_changed(id: int, new_status: str) -> bool:
     return is_changed
 
 
-# @logit  # Иначе не проходит тест
 def parse_status(homework: Dict) -> Optional[str]:
     """Получает статус домашней работы."""
     status = homework['status']
@@ -234,15 +232,14 @@ def check_response_type(response: object) -> None:
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
+        raise_bad_token()
         return
 
     app_bot.set_token(TELEGRAM_TOKEN)
 
     current_timestamp = gеt_timestamp()
 
-    is_running = True
-
-    while is_running:
+    while True:
         try:
             response = get_api_answer(current_timestamp)
 
@@ -262,26 +259,29 @@ def main():
                     if not stng.DEBUG:
                         current_timestamp = gеt_timestamp()
 
+            time.sleep(stng.RETRY_TIME)
+
         except ex.ErrorLevelLogException:
-            pass
-
-        except ex.CriticalLevelLogException:
-            app_logger.critical(
-                'Произошла критическая ошибка. Программа остановлена.'
-            )
-            is_running = False
-
-        except Exception as err:
-            app_logger.critical(
-                f'Сбой в работе программы: {err}. '
-                f'Аварийное завершение работы.'
-            )
-            is_running = False
-
-        finally:
-            if is_running:
-                time.sleep(stng.RETRY_TIME)
+            time.sleep(stng.RETRY_TIME)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        app_logger.info('Запуск программы.')
+
+        main()
+
+    except ex.CriticalLevelLogException:
+        app_logger.critical(
+            'Произошла критическая ошибка. '
+            'Программа остановлена.'
+        )
+
+    except Exception as err:
+        app_logger.critical(
+            f'Сбой в работе программы: {err}. '
+            f'Аварийное завершение работы.'
+        )
+
+    except KeyboardInterrupt:
+        app_logger.info('Программа остановлена пользователем.')

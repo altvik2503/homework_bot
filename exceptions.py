@@ -1,8 +1,62 @@
 # exceptions.py
 from typing import Callable
-import bot_logger_messages
 import homework
 from settings import TELEGRAM_CHAT_ID
+
+BOT_LOGGER_MESAGES = {
+    # Ошибки переменных окружения
+    'absent_practicum_token':
+        'Отсутствует переменная окружения: токен Практикума.',
+    'absent_telegram_token':
+        'Отсутствует переменная окружения: токен Telegram.',
+    'absent_telegram_chat_id':
+        'Отсутствует переменная окружения: id чата Telegram.',
+    'wrong_practicum_token':
+        'Ошибочная переменная окружения: токен Практикума: ',
+    'wrong_telegram_token':
+        'Ошибочная переменная окружения: токен Telegram: ',
+    'wrong_telegram_chat_id':
+        'Ошибочная переменная окружения: id чата Telegram: ',
+    # Ошибки Практикума
+    'connection':
+        'Ошибка соединения с Практикумом: ',
+    'request':
+        'Ошибка запроса Практикума: ',
+    'not_found':
+        'Запрашиваемая страница не найдена: ',
+    'end_point_status':
+        'Неверный статус ответа Практикума: ',
+    # Ошибки формата ответа Практикума
+    'type_response': (
+        'Неверный формат ответа Практикума: '
+        'Тип "response": ожидается "dict", получен '
+    ),
+    'type_homeworks': (
+        'Неверный формат ответа Практикума: '
+        'Тип "homeworks": ожидается "dict", получен '
+    ),
+    'key_homeworks': (
+        'Неверный формат ответа Практикума: '
+        'Отсутствует ключ "homeworks".'
+    ),
+    'key_homework_name': (
+        'Неверный формат ответа Практикума: '
+        'Отсутствует ключ "homework_name".'
+    ),
+    'key_homework_id': (
+        'Неверный формат ответа Практикума: '
+        'Отсутствует ключ "id".'
+    ),
+    'key_status': (
+        'Неверный формат ответа Практикума: '
+        'Отсутствует ключ "status"'
+    ),
+    'key_in_statuses':
+        'Неверный статус домашней работы: ',
+    # Прочие ошибки
+    'network':
+        'Ошибка сети: ',
+}
 
 
 class LoggedException(Exception):
@@ -18,7 +72,7 @@ class LoggedException(Exception):
         is_send_message: bool = True,
     ) -> None:
         """Логгирует ошибку, отправляет сообщение в Телеграмм."""
-        self.message = bot_logger_messages.get_message_by_key(key)
+        self.message = BOT_LOGGER_MESAGES.get(key, key)
         if msg_obj:
             self.message += str(msg_obj)
 
@@ -62,6 +116,22 @@ class ErrorLevelLogException(LoggedException):
         )
 
 
+class CriticalLevelNotBotException(CriticalLevelLogException):
+    """Обрабатывает критические ошибки."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Инициирует объект с уровнем CRITICAL."""
+        super().__init__(*args, is_send_message=False, **kwargs)
+
+
+class ErrorLevelNotBotException(ErrorLevelLogException):
+    """Обрабатывает ошибки уровня ERROR."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Инициирует объект с уровнем ERROR."""
+        super().__init__(*args, is_send_message=False, **kwargs)
+
+
 # Ошибки переменных окружения
 class PracticumAbsentTokenException(CriticalLevelLogException):
     """Отсутствует токен Телеграм."""
@@ -79,56 +149,36 @@ class PracticumWrongTokenException(CriticalLevelLogException):
         super().__init__('wrong_practicum_token', *args, **kwargs)
 
 
-class TelegramAbsentTokenException(CriticalLevelLogException):
+class TelegramAbsentTokenException(CriticalLevelNotBotException):
     """Отсутствует токен Телеграм."""
 
     def __init__(self, *args, **kwargs) -> None:
         """Обработка ошибки отсутствия токена Телеграм."""
-        super().__init__(
-            'absent_telegram_token',
-            *args,
-            is_send_message=False,
-            **kwargs,
-        )
+        super().__init__('absent_telegram_token', *args, **kwargs)
 
 
-class TelegramAbsentChatId(CriticalLevelLogException):
+class TelegramAbsentChatId(CriticalLevelNotBotException):
     """Отсутствует ID чата Телеграм."""
 
     def __init__(self, *args, **kwargs) -> None:
         """Обработка ошибки отсутствия ID чата Телеграм."""
-        super().__init__(
-            'absent_telegram_chat_id',
-            *args,
-            is_send_message=False,
-            **kwargs,
-        )
+        super().__init__('absent_telegram_chat_id', *args, **kwargs)
 
 
-class TelegramWrongTokenException(CriticalLevelLogException):
+class TelegramWrongTokenException(CriticalLevelNotBotException):
     """Некорректный токен Телеграм."""
 
     def __init__(self, *args, **kwargs) -> None:
         """Обработка ошибки некорректного токена Телеграм."""
-        super().__init__(
-            'wrong_telegram_token',
-            *args,
-            is_send_message=False,
-            **kwargs,
-        )
+        super().__init__('wrong_telegram_token', *args, **kwargs)
 
 
-class TelegramWrongChatIdException(CriticalLevelLogException):
+class TelegramWrongChatIdException(CriticalLevelNotBotException):
     """Некорректный ID чата Телеграм."""
 
     def __init__(self, *args, **kwargs) -> None:
         """Обработка ошибки некорректного ID чата Телеграм."""
-        super().__init__(
-            'wrong_telegram_chat_id',
-            *args,
-            is_send_message=False,
-            **kwargs,
-        )
+        super().__init__('wrong_telegram_chat_id', *args, **kwargs)
 
 
 # Ошибки Практикума
@@ -221,8 +271,8 @@ class NotKeyInStatusesException(ErrorLevelLogException):
         super().__init__('key_in_statuses', *args, **kwargs)
 
 
-# Прочие ошибки
-class TelegramNetworkErrorException(ErrorLevelLogException):
+# Ошибки Телеграм``
+class TelegramNetworkErrorException(ErrorLevelNotBotException):
     """Ошибка сети Телеграм."""
 
     def __init__(self, *args, **kwargs) -> None:
@@ -230,7 +280,7 @@ class TelegramNetworkErrorException(ErrorLevelLogException):
         super().__init__('network', *args, **kwargs)
 
 
-class TelegramUnhandledException(ErrorLevelLogException):
+class TelegramUnhandledException(ErrorLevelNotBotException):
     """Ошибка при работе Телеграм."""
 
     def __init__(self, *args, **kwargs) -> None:

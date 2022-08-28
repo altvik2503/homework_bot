@@ -63,3 +63,6 @@ class CleverBot(Bot):
         """Отправляет сообщение, устанавливая статус отправки."""
         self.is_sended = True
         return super().send_message(*args, **kwargs)
+
+
+app_bot = CleverBot()
