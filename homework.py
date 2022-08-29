@@ -1,81 +1,33 @@
 # homework.py
 from http import HTTPStatus
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 import requests
 from requests import exceptions as req_ex
-from datetime import datetime
 import time
-import telegram
-import sys
 import logging
 
 import exceptions as ex
 from clever_bot import CleverBot, app_bot
 from decorators import logit
 import settings as stng
-from statuses import (
-    HOMEWORK_STATUSES,
-    homeworks_statuses,
+from verdicts import (
+    HOMEWORK_VERDICTS,
+    homework_verdicts,
 )
 from settings import (
     PRACTICUM_TOKEN,
     TELEGRAM_TOKEN,
     TELEGRAM_CHAT_ID,
 )
-
-BASE_LOGGER_NAME = __name__
-
-logging.basicConfig(
-    level=stng.LOGGIN_LEVEL,
-    stream=sys.stdout,
-    format='[%(asctime)s] [%(name)s] [%(levelname)s] > %(message)s',
-    datefmt='%d-%b-%y %H:%M:%S',
-)
-app_logger = logging.getLogger(BASE_LOGGER_NAME)
-logit_logger = logging.getLogger(f'{BASE_LOGGER_NAME}.logit')
-exception_logger = logging.getLogger(f'{BASE_LOGGER_NAME}.err')
-
-
-@logit
-def send_memorized(
-    chat_id: Union[int, str, None],
-    message: object,
-    is_memorized: bool = False,
-    bot: CleverBot = app_bot,
-) -> None:
-    """Отправляет сообщение в Telegram."""
-    if not bot.is_active:
-        return
-
-    str_message = str(message)
-
-    try:
-        bot.send_memorized(chat_id, str_message, is_memorized)
-
-    except telegram.error.BadRequest as error:
-        raise ex.TelegramWrongChatIdException(msg_obj=error)
-
-    except telegram.error.Unauthorized as error:
-        raise ex.TelegramWrongTokenException(msg_obj=error)
-
-    except telegram.error.NetworkError as error:
-        raise ex.TelegramNetworkErrorException(msg_obj=error)
-
-    except Exception as error:
-        raise ex.TelegramUnhandledException(msg_obj=error)
-
-    else:
-        if bot.is_sended:
-            app_logger.info(f'Бот отправил сообщение: {str_message}')
+from loggers import get_logger
 
 
 @logit
 def send_message(bot: CleverBot, message: str) -> None:
     """Отправляет сообщение в Telegram."""
-    send_memorized(TELEGRAM_CHAT_ID, message, bot=bot)
+    bot.send_cached_message(TELEGRAM_CHAT_ID, message)
 
 
-@logit
 def raise_bad_token() -> None:
     """Вызывает исключение при ошибке переменных окружения."""
     if not TELEGRAM_TOKEN:
@@ -152,13 +104,13 @@ def status_is_changed(id: int, new_status: str) -> bool:
     """Проверет и фиксирует изменение статуса домашней работы."""
     is_changed = True
 
-    previous_status = homeworks_statuses.get(id)
+    previous_status = homework_verdicts.get(id)
 
     if previous_status:
         is_changed = (new_status != previous_status)
 
     if any([not previous_status, is_changed]):
-        homeworks_statuses.update({id: new_status})
+        homework_verdicts.update({id: new_status})
 
     return is_changed
 
@@ -168,7 +120,7 @@ def parse_status(homework: Dict) -> Optional[str]:
     status = homework['status']
 
     try:
-        verdict = HOMEWORK_STATUSES[status]
+        verdict = HOMEWORK_VERDICTS[status]
 
     except KeyError:
         ex.NotKeyInStatusesException(msg_obj=status)
@@ -182,10 +134,6 @@ def parse_status(homework: Dict) -> Optional[str]:
     if is_changed:
         return f'Изменился статус проверки работы "{name}". {verdict}'
     else:
-        app_logger.debug(
-            f'Статус работы {name} не изменился. '
-            f'Текущий статус: "{status}"'
-        )
         return None
 
 
@@ -211,10 +159,7 @@ def check_homework(homework: Dict) -> None:
 @logit
 def gеt_timestamp() -> int:
     """Формирует время запроса к Практикуму."""
-    if stng.DEBUG:
-        test_date = datetime(2022, 7, 30).timestamp()
-    else:
-        test_date = time.time()
+    test_date = stng.DEBUG_TIMESTAMP if stng.DEBUG else time.time()
 
     return int(test_date)
 
@@ -231,6 +176,7 @@ def check_response_type(response: object) -> None:
 @logit
 def main():
     """Основная логика работы бота."""
+    logger = get_logger('app_logger')
     if not check_tokens():
         raise_bad_token()
         return
@@ -256,29 +202,43 @@ def main():
                 if message:
                     send_message(app_bot, message)
 
-                    if not stng.DEBUG:
-                        current_timestamp = gеt_timestamp()
+                    if app_bot.is_sended:
+                        logger.info(f'Бот отправил сообщение: {message}')
 
-            time.sleep(stng.RETRY_TIME)
+                    current_timestamp = gеt_timestamp()
+                else:
+                    logger.debug(
+                        f'Статус работы {homework["homework_name"]}'
+                        f' не изменился. '
+                        f'Текущий статус: "{homework["status"]}"'
+                    )
 
         except ex.ErrorLevelLogException:
+            pass
+
+        finally:
             time.sleep(stng.RETRY_TIME)
 
 
 if __name__ == '__main__':
+    logging.config.dictConfig(stng.LOGGING_CONFIG)
+
+    app_logger = get_logger('app_logger')
+    err_logger = get_logger('err_logger')
+
     try:
         app_logger.info('Запуск программы.')
 
         main()
 
     except ex.CriticalLevelLogException:
-        app_logger.critical(
+        err_logger.critical(
             'Произошла критическая ошибка. '
             'Программа остановлена.'
         )
 
     except Exception as err:
-        app_logger.critical(
+        err_logger.critical(
             f'Сбой в работе программы: {err}. '
             f'Аварийное завершение работы.'
         )

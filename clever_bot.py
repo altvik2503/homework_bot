@@ -1,22 +1,22 @@
 # clever_bot.py
-from telegram import Message
+from telegram import Message, error as bot_err, Bot
 from typing import Set, Union, Optional
-from telegram import Bot
+
+import exceptions as ex
 import settings as stng
 
 
 class CleverBot(Bot):
     """
+    Кэширует отправляемые сообщения.
     Отправляет сообщение при необходимости.
-    Проверяет совпадение принимающего чата и текста.
     """
-
-    is_active: bool = False
-    is_sended: bool = False
-    sended_messages: Set[str] = set()
 
     def __init__(self, token: str = None):
         """Инициирует бот."""
+        self.is_active: bool = False
+        self.is_sended: bool = False
+        self.sended_messages: Set[str] = set()
         if token:
             self.set_token(token)
 
@@ -25,44 +25,48 @@ class CleverBot(Bot):
         super().__init__(token)
         self.is_active = True
 
-    def get_memorized_key(
-        self,
-        chat_id: Optional[Union[int, str]],
-        text: str
-    ) -> str:
-        """Создаёт форматированную уникальную строку сообщения."""
+    def get_memorized_key(self, chat_id: Union[int, str], text: str) -> str:
+        """Создаёт уникальную строку сообщения для кэширования."""
         return f'{chat_id} {text}'
 
-    def send_memorized(
+    def send_cached_message(
         self,
-        chat_id: Optional[Union[int, str]],
+        chat_id: Union[int, str],
         text: str,
-        is_memorized: bool = True,
         *args,
-        **kwargs
+        not_repeat: bool = False,
+        **kwargs,
     ) -> Optional[Message]:
-        """Отправляет сообщение, если ещё не отправлялось."""
-        res = None
-
-        if chat_id:
-
-            memorized_key = self.get_memorized_key(chat_id, text)
-            is_repeated = memorized_key in self.sended_messages
-
-            self.is_sended = any([not is_memorized, not is_repeated])
-
-            if all([self.is_sended, stng.BOT_IS_ACTIVE]):
-                res = super().send_message(chat_id, text, *args, **kwargs)
-
-            if all([is_memorized, not is_repeated]):
-                self.sended_messages.add(memorized_key)
-
-        return res
-
-    def send_message(self, *args, **kwargs) -> Message:
         """Отправляет сообщение, устанавливая статус отправки."""
         self.is_sended = True
-        return super().send_message(*args, **kwargs)
+
+        if not_repeat:
+
+            memorized_key = self.get_memorized_key(chat_id, text)
+
+            self.is_sended = memorized_key not in self.sended_messages
+
+            self.sended_messages.add(memorized_key)
+
+        if all([self.is_sended, stng.BOT_IS_ACTIVE]):
+            try:
+                res = super().send_message(chat_id, text, *args, **kwargs)
+
+            except bot_err.BadRequest as error:
+                raise ex.TelegramWrongChatIdException(msg_obj=error)
+
+            except bot_err.Unauthorized as error:
+                raise ex.TelegramWrongTokenException(msg_obj=error)
+
+            except bot_err.NetworkError as error:
+                raise ex.TelegramNetworkErrorException(msg_obj=error)
+
+            except Exception as error:
+                raise ex.TelegramUnhandledException(msg_obj=error)
+        else:
+            res = None
+
+        return res
 
 
 app_bot = CleverBot()

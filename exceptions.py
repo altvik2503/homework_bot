@@ -1,9 +1,12 @@
 # exceptions.py
 from typing import Callable
-import homework
+from clever_bot import app_bot
+from loggers import get_logger
 from settings import TELEGRAM_CHAT_ID
 
-BOT_LOGGER_MESAGES = {
+exception_logger = get_logger('err_logger')
+
+EXCEPTIONS_MESSAGES = {
     # Ошибки переменных окружения
     'absent_practicum_token':
         'Отсутствует переменная окружения: токен Практикума.',
@@ -72,17 +75,17 @@ class LoggedException(Exception):
         is_send_message: bool = True,
     ) -> None:
         """Логгирует ошибку, отправляет сообщение в Телеграмм."""
-        self.message = BOT_LOGGER_MESAGES.get(key, key)
+        self.message = EXCEPTIONS_MESSAGES.get(key, key)
         if msg_obj:
             self.message += str(msg_obj)
 
         logger_fun(self.message)
 
         if is_send_message:
-            homework.send_memorized(
+            app_bot.send_cached_message(
                 TELEGRAM_CHAT_ID,
                 self.message,
-                is_memorized=True
+                not_repeat=True
             )
 
     def __str__(self) -> str:
@@ -97,7 +100,7 @@ class CriticalLevelLogException(LoggedException):
         """Инициирует объект с уровнем CRITICAL."""
         super().__init__(
             key,
-            homework.exception_logger.critical,
+            exception_logger.critical,
             *args,
             **kwargs
         )
@@ -110,7 +113,7 @@ class ErrorLevelLogException(LoggedException):
         """Инициирует объект с уровнем ERROR."""
         super().__init__(
             key,
-            homework.exception_logger.error,
+            exception_logger.error,
             *args,
             **kwargs
         )
