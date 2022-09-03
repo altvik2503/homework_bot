@@ -28,8 +28,9 @@ def send_message(bot: CleverBot, message: str) -> None:
     bot.send_cached_message(TELEGRAM_CHAT_ID, message)
 
 
-def raise_bad_token() -> None:
-    """Вызывает исключение при ошибке переменных окружения."""
+@logit
+def check_tokens():
+    """Проверяет наличие переменных окружения."""
     if not TELEGRAM_TOKEN:
         raise ex.TelegramAbsentTokenException
 
@@ -40,15 +41,7 @@ def raise_bad_token() -> None:
         raise ex.PracticumAbsentTokenException
 
 
-def check_tokens() -> bool:
-    """Проверяет наличие переменных окружения."""
-    return all([
-        TELEGRAM_TOKEN,
-        TELEGRAM_CHAT_ID,
-        PRACTICUM_TOKEN,
-    ])
-
-
+@logit
 def get_api_answer(current_timestamp=None) -> dict:
     """Отправляет запрос сервису Практикума."""
     timestamp = current_timestamp or int(time.time())
@@ -115,6 +108,7 @@ def status_is_changed(id: int, new_status: str) -> bool:
     return is_changed
 
 
+@logit
 def parse_status(homework: Dict) -> Optional[str]:
     """Получает статус домашней работы."""
     status = homework['status']
@@ -177,11 +171,10 @@ def check_response_type(response: object) -> None:
 def main():
     """Основная логика работы бота."""
     logger = get_logger('app_logger')
-    if not check_tokens():
-        raise_bad_token()
-        return
 
-    app_bot.set_token(TELEGRAM_TOKEN)
+    check_tokens()
+
+    app_bot.set_attr(token=TELEGRAM_TOKEN, logger_func=logger.info)
 
     current_timestamp = gеt_timestamp()
 
@@ -202,10 +195,8 @@ def main():
                 if message:
                     send_message(app_bot, message)
 
-                    if app_bot.is_sended:
-                        logger.info(f'Бот отправил сообщение: {message}')
-
                     current_timestamp = gеt_timestamp()
+
                 else:
                     logger.debug(
                         f'Статус работы {homework["homework_name"]}'

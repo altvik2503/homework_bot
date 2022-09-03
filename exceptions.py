@@ -85,7 +85,7 @@ class LoggedException(Exception):
             app_bot.send_cached_message(
                 TELEGRAM_CHAT_ID,
                 self.message,
-                not_repeat=True
+                do_not_repeat=True
             )
 
     def __str__(self) -> str:

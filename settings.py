@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 
+# debug
 DEBUG = False
 
 BOT_IS_ACTIVE = not DEBUG
